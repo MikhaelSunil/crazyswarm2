@@ -168,8 +168,8 @@ As long as the build of the package finish, you can ignore this for now.</p>
 </li>
 <li><p>Set up software-in-the-loop simulation (optional)</p>
 <blockquote>
-<div><p>This currently requires cloning the Crazyflie firmware and building the Python bindings manually. In a separate folder (not part of your ROS 2 workspace!),</p>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>git<span class="w"> </span>clone<span class="w"> </span>--recursive<span class="w"> </span>https://github.com/bitcraze/crazyflie-firmware.git
+<div><p>This currently requires cloning the Crazyflie firmware of the latest tested release (2025.02) and building the Python bindings manually. In a separate folder (not part of your ROS 2 workspace!),</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>git<span class="w"> </span>clone<span class="w"> </span>--branch<span class="w"> </span><span class="m">2025</span>.02<span class="w"> </span>--single-branch<span class="w"> </span>--recursive<span class="w"> </span>https://github.com/bitcraze/crazyflie-firmware.git
 </pre></div>
 </div>
 <p>First follow <a class="reference external" href="https://www.bitcraze.io/documentation/repository/crazyflie-firmware/master/building-and-flashing/build/#build-python-bindings">the instructions to build the python bindings</a> from the bitcraze website. Afterwards, make sure that the bindings can be found in the python path:</p>
