@@ -610,7 +610,7 @@ class Crazyflie:
         self.cmdFullStateMsg.acc.x = acc[0]
         self.cmdFullStateMsg.acc.y = acc[1]
         self.cmdFullStateMsg.acc.z = acc[2]
-        q = rowan.from_euler(0, 0, yaw)
+        q = rowan.from_euler(0, 0, yaw, "xyz")
         self.cmdFullStateMsg.pose.orientation.w = q[0]
         self.cmdFullStateMsg.pose.orientation.x = q[1]
         self.cmdFullStateMsg.pose.orientation.y = q[2]
@@ -1059,7 +1059,7 @@ class CrazyflieServer(rclpy.node.Node):
         self.cmdFullStateMsg.acc.x = acc[0]
         self.cmdFullStateMsg.acc.y = acc[1]
         self.cmdFullStateMsg.acc.z = acc[2]
-        q = rowan.from_euler(0, 0, yaw)
+        q = rowan.from_euler(0, 0, yaw, "xyz")
         self.cmdFullStateMsg.pose.orientation.w = q[0]
         self.cmdFullStateMsg.pose.orientation.x = q[1]
         self.cmdFullStateMsg.pose.orientation.y = q[2]

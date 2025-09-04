@@ -2,7 +2,7 @@
 robots:
   cf231:
     enabled: true
-    uri: radio://0/80/2M/E7E7E7E7E7
+    uri: radio://0/80/2M/E7E7E7E70B
     initial_position: [0.0, 0.0, 0.0]
     type: cf21  # see robot_types
     # firmware_params:
@@ -31,7 +31,7 @@ robots:
 robot_types:
   cf21:
     motion_capture:
-      enabled: true
+      enabled: false
       # only if enabled; see motion_capture.yaml
       marker: default_single_marker
       dynamics: default
