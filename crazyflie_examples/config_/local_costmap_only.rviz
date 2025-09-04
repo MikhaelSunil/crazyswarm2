@@ -1,0 +1,14 @@
+Panels:
+  - Class: rviz_common/Displays
+    Name: Displays
+Visualization Manager:
+  Global Options:
+    Fixed Frame: cf231/odom
+  Displays:
+    - Class: rviz_default_plugins/Grid
+      Name: Grid
+    - Class: nav2_rviz_plugins/Costmap
+      Name: Local Costmap
+      Topic: /local_costmap/costmap
+      Use Incoming Topic: true
+      Always Render: true

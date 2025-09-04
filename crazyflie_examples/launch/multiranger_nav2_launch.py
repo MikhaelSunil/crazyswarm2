@@ -71,7 +71,7 @@ def generate_launch_description():
                     + '.yaml',
                     'params_file': os.path.join(
                         get_package_share_directory('crazyflie_examples'),
-                        'config/nav2_params.yaml',
+                        'config/nav2_params.yaml',   # nav2_params   nav2_costmap
                     ),
                     'autostart': 'True',
                     'use_composition': 'True',
@@ -89,7 +89,7 @@ def generate_launch_description():
                     'rviz_config': os.path.join(
                         get_package_share_directory('nav2_bringup'),
                         'rviz',
-                        'nav2_default_view.rviz',
+                        'nav2_default_view.rviz',  # nav2_default_view  local_costmap_only
                     )
                 }.items(),
             ),

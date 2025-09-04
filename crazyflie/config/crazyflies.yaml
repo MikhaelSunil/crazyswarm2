@@ -9,8 +9,8 @@ robots:
   #   type: cf21  # see robot_types
   cf231:
     enabled: true
-    uri: radio://0/80/2M/E7E7E7E7E7
-    initial_position: [0.0, 0.2, 0.0]
+    uri: radio://0/88/2M/E7E7E7EE07
+    initial_position: [0.0, 0.0, 0.0]
     type: cf21  # see robot_types
     firmware_params:
       # the flapper had some strange bias in position
@@ -20,7 +20,7 @@ robots:
         yKi: 0.5
 
   cf5:
-    enabled: true
+    enabled: false
     uri: radio://0/80/2M/E7E7E7EE02
     initial_position: [0.0, -0.2, 0.0]
     type: cf21  # see robot_types
@@ -101,10 +101,16 @@ all:
     enabled: true
     default_topics:
      # remove to disable default topic
-      pose:
+      # pose:
+      #   frequency: 10 # Hz
+      # status:
+      #   frequency: 1 # Hz
+
+      odom:
         frequency: 10 # Hz
-      status:
-        frequency: 1 # Hz
+      scan:
+        frequency: 10 # Hz
+
     #custom_topics:
     #  topic_name1:
     #    frequency: 10 # Hz
@@ -119,7 +125,7 @@ all:
       enHighLevel: 1
     stabilizer:
       estimator: 2 # 1: complementary, 2: kalman
-      controller: 2 # 1: PID, 2: mellinger
+      controller: 1 # 1: PID, 2: mellinger
     # ring:
     #   effect: 16 # 6: double spinner, 7: solid color, 16: packetRate
     #   solidBlue: 255 # if set to solid color
@@ -133,7 +139,9 @@ all:
     #   resetEstimation: 1
   # reference frame for on-board state-estimate of all drones (use robot_types/type_name to set per type, or
   # robots/drone_name to set per drone)
-  reference_frame: "world"
+  # reference_frame: "world"
+  reference_frame: "cf231/odom"
+
   broadcasts:
     num_repeats: 15 # number of times broadcast commands are repeated
     delay_between_repeats_ms: 1 # delay in milliseconds between individual repeats

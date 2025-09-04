@@ -1,0 +1,40 @@
+costmap:
+  costmap:
+    ros__parameters:
+      update_frequency: 50.0
+      publish_frequency: 50.0
+      global_frame: cf231
+      robot_base_frame: cf231
+      use_sim_time: False
+      rolling_window: True
+      width: 6
+      height: 6
+      resolution: 0.075
+      robot_radius: 0.23
+      plugins: ["obstacle_layer", "inflation_layer"]
+      static_layer:
+        enabled: False
+      obstacle_layer:
+        plugin: "nav2_costmap_2d::ObstacleLayer"
+        enabled: True
+        footprint_clearing_enabled: False
+        observation_sources: scan
+        max_obstacle_height: 5.0
+        scan:
+          topic: /cf231/scan
+          max_obstacle_height: 5.0
+          min_obstacle_height: 0.0
+          obstacle_max_range: 6.0
+          obstacle_min_range: 0.0
+          raytrace_max_range: 6.0
+          raytrace_min_range: 0.0
+          clearing: False
+          marking: True
+          data_type: "LaserScan"
+          inf_is_valid: false
+      inflation_layer:
+        plugin: "nav2_costmap_2d::InflationLayer"
+        cost_scaling_factor: 10.0 # Inf
+        inflation_radius: 0.28
+      always_send_full_costmap: True
+

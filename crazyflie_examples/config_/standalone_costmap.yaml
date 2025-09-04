@@ -1,0 +1,44 @@
+cf231:
+  costmap:
+    ros__parameters:
+      use_sim_time: false
+
+      # 跟你的 TF 对齐：map→odom→cf231
+      global_frame: cf231/odom
+      robot_base_frame: cf231
+      rolling_window: true
+      width: 3.0
+      height: 3.0
+      resolution: 0.05
+      track_unknown_space: false
+
+      update_frequency: 5.0
+      publish_frequency: 2.0
+
+      # 机器人外形（选一种：radius 或 footprint）
+      robot_radius: 0.10
+      # footprint: [[0.08,0.08],[0.08,-0.08],[-0.08,-0.08],[-0.08,0.08]]
+
+      plugins: ["obstacle_layer", "inflation_layer"]
+
+      obstacle_layer:
+        plugin: "nav2_costmap_2d::ObstacleLayer"
+        enabled: true
+        observation_sources: scan
+        combination_method: 1
+
+        scan:
+          topic: "/cf231/scan"
+          data_type: "LaserScan"
+          marking: true
+          clearing: true
+          obstacle_range: 3.0
+          raytrace_range: 4.0
+          max_obstacle_height: 2.0
+          expected_update_rate: 0.0
+
+      inflation_layer:
+        plugin: "nav2_costmap_2d::InflationLayer"
+        enabled: true
+        inflation_radius: 0.5
+        cost_scaling_factor: 5.0
