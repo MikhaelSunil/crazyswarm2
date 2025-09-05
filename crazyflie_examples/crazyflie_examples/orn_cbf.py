@@ -32,6 +32,32 @@ def executeTrajectory(timeHelper, cf, trajpath, rate=100, offset=np.zeros(3), ya
 
         timeHelper.sleepForRate(rate)
 
+def executeTrajectory2(timeHelper, cf, rate=100, offset=np.zeros(3), yawrate=0.0):
+
+    start_time = timeHelper.time()
+    yaw = 0
+    pos = np.zeros(3)
+    vel = np.zeros(3)
+    acc = np.array([0])
+    while not timeHelper.isShutdown():
+        t = timeHelper.time() - start_time
+        if t > 5.0:
+            break
+
+        e = traj.eval(t)
+        yaw = yaw + yawrate * 1/rate
+        omega = e.omega
+        omega[2] = yawrate
+        cf.cmdFullState(
+            e.pos + np.array(cf.initialPosition) + offset,
+            e.vel,
+            e.acc,
+            yaw,
+            omega)
+        print(yaw)
+
+        timeHelper.sleepForRate(rate)
+
 
 def main():
     swarm = Crazyswarm()
@@ -40,7 +66,7 @@ def main():
 
     rate = 30.0
     Z = 0.5
-    yawrate = 0.0#2.0
+    yawrate = 2.0
     max_yaw_acc = 5.0
     # max_yaw_rate = 5.0
 
