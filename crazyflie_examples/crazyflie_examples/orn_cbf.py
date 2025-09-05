@@ -32,31 +32,91 @@ def executeTrajectory(timeHelper, cf, trajpath, rate=100, offset=np.zeros(3), ya
 
         timeHelper.sleepForRate(rate)
 
-def executeTrajectory2(timeHelper, cf, rate=100, offset=np.zeros(3), yawrate=0.0):
+# def executeTrajectory2(timeHelper, cf, rate=100, offset=np.zeros(3), yawrate=0.0):
+
+#     start_time = timeHelper.time()
+#     yaw = 0
+#     pos = np.zeros(3)
+#     vel = np.zeros(3)
+#     acc = np.array([0])
+#     while not timeHelper.isShutdown():
+#         t = timeHelper.time() - start_time
+#         if t > 5.0:
+#             break
+
+#         e = traj.eval(t)
+#         yaw = yaw + yawrate * 1/rate
+#         omega = e.omega
+#         omega[2] = yawrate
+#         cf.cmdFullState(
+#             e.pos + np.array(cf.initialPosition) + offset,
+#             e.vel,
+#             e.acc,
+#             yaw,
+#             omega)
+#         print(yaw)
+
+#         timeHelper.sleepForRate(rate)
+
+
+def executeTrajectory2(timeHelper, cf,
+                        duration: float,
+                        rate: float = 100.0,
+                        offset: np.ndarray = np.zeros(3),
+                        ay: float = 0.0,
+                        v0: np.ndarray = np.array([0.0, 0.0, 0.0]),
+                        yawrate: float = 0.0,    
+                        spin_duration: float = 3.0,
+                        spin_yawrate: float | None = None):
+
+    vel = np.array(v0, dtype=float).reshape(3)
+    pos = np.zeros(3, dtype=float)
+
+    spin_yawrate = yawrate if spin_yawrate is None else float(spin_yawrate)
+
 
     start_time = timeHelper.time()
-    yaw = 0
-    pos = np.zeros(3)
-    vel = np.zeros(3)
-    acc = np.array([0])
+    last_time = start_time
+    yaw = float(0.0)
+    omega = np.array([0.0, 0.0, yawrate], dtype=float)
+    dt_nominal = 1.0 / float(rate)
+
     while not timeHelper.isShutdown():
-        t = timeHelper.time() - start_time
-        if t > 5.0:
+        now = timeHelper.time()
+        t = now - start_time
+        if t > duration:
             break
+        dt = now - last_time
+        if dt <= 0: dt = dt_nominal
+        elif dt > 2.0 * dt_nominal: dt = 2.0 * dt_nominal
+        last_time = now
 
-        e = traj.eval(t)
-        yaw = yaw + yawrate * 1/rate
-        omega = e.omega
-        omega[2] = yawrate
-        cf.cmdFullState(
-            e.pos + np.array(cf.initialPosition) + offset,
-            e.vel,
-            e.acc,
-            yaw,
-            omega)
-        print(yaw)
 
-        timeHelper.sleepForRate(rate)
+        if t < spin_duration:
+            acc = np.zeros(3, dtype=float)
+            omega = np.array([0.0, 0.0, spin_yawrate], dtype=float)
+            yaw += spin_yawrate * dt
+            cmd_pos = pos + np.array(cf.initialPosition, dtype=float) + offset
+            cf.cmdFullState(cmd_pos, vel*0.0, acc, yaw, omega)
+
+        else:
+            acc = np.array([0.0, float(ay), 0.0], dtype=float) 
+            omega = np.array([0.0, 0.0, spin_yawrate], dtype=float)
+
+            pos = pos + vel * dt + 0.5 * acc * (dt ** 2)
+            vel = vel + acc * dt
+            yaw += yawrate * dt
+
+            cf.cmdFullState(
+                pos + np.array(cf.initialPosition, dtype=float) + offset,
+                vel,
+                acc,
+                yaw,
+                omega
+            )
+            timeHelper.sleepForRate(rate)
+
+
 
 
 def main():
@@ -91,11 +151,21 @@ def main():
     #                   rate,
     #                   offset=np.array([0, 0, 0.5]),
     #                   yawrate=yawrate)
-    # cf.startTrajectory(0)
-    # timeHelper.sleep(traj1.duration)
 
-    cf.goTo([0.0, 1.0, Z], 0.0, 5.0)
-    timeHelper.sleep(5.0)
+
+    executeTrajectory2(timeHelper, cf, 
+                    duration=4.0,
+                    rate=rate,
+                    offset=np.array([0, 0, 0.5]),
+                    ay=-0.2,           
+                    yawrate=yawrate)
+
+
+    cf.startTrajectory(0)
+    timeHelper.sleep(traj1.duration)
+
+    # cf.goTo([0.0, 1.0, Z], 0.0, 5.0)
+    # timeHelper.sleep(5.0)
 
     
     cf.setParam('hlCommander.yawrate', 0.0)
