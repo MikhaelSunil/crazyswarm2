@@ -40,7 +40,7 @@ def main():
 
     rate = 30.0
     Z = 0.5
-    yawrate = 5.0
+    yawrate = 0.0#2.0
     max_yaw_acc = 5.0
     # max_yaw_rate = 5.0
 
@@ -65,8 +65,12 @@ def main():
     #                   rate,
     #                   offset=np.array([0, 0, 0.5]),
     #                   yawrate=yawrate)
-    cf.startTrajectory(0)
-    timeHelper.sleep(traj1.duration)
+    # cf.startTrajectory(0)
+    # timeHelper.sleep(traj1.duration)
+
+    cf.goTo([0.0, 1.0, Z], 0.0, 5.0)
+    timeHelper.sleep(5.0)
+
     
     cf.setParam('hlCommander.yawrate', 0.0)
     timeHelper.sleep(2.0)

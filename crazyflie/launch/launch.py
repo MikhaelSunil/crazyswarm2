@@ -8,6 +8,16 @@ from launch.conditions import LaunchConfigurationEquals
 from launch.conditions import IfCondition
 from launch.substitutions import LaunchConfiguration, PythonExpression
 
+from ament_index_python.packages import get_package_share_directory
+from launch import LaunchDescription
+from launch.actions import IncludeLaunchDescription, EmitEvent, RegisterEventHandler
+from launch.launch_description_sources import PythonLaunchDescriptionSource
+from launch.events import matches_action
+from launch_ros.actions import Node, LifecycleNode
+from launch_ros.events.lifecycle import ChangeState
+from launch_ros.event_handlers import OnStateTransition
+from lifecycle_msgs.msg import Transition
+
 def parse_yaml(context):
     # Load the crazyflies YAML file
     crazyflies_yaml_file = LaunchConfiguration('crazyflies_yaml_file').perform(context)
@@ -78,6 +88,59 @@ def generate_launch_description():
         get_package_share_directory('crazyflie'),
         'config',
         'teleop.yaml')
+    
+    costmap_config_path = os.path.join(
+        get_package_share_directory('crazyflie'),
+        'config/costmap_drone.yaml'
+    )
+
+    costmap_node = LifecycleNode(
+        package='nav2_costmap_2d',
+        executable='nav2_costmap_2d',
+        name='costmap',
+        namespace='costmap',
+        output='screen',
+        parameters=[
+            costmap_config_path,
+            # {
+            #     'use_sim_time': False,
+            #     'global_frame': 'world',
+            #     'robot_base_frame': 'cf231',
+            #     'obstacle_layer.scan.topic': '/cf231/scan',
+            #     'static_layer.enabled': False,
+            #     # 'width': 10,
+            #     # 'height': 10,
+            #     # 'rolling_window': True,
+            #     # 'track_unknown_space': False,
+            #     # 'static_layer.enabled': False,
+            #     # 'plugins': ['obstacle_layer', 'inflation_layer']
+            # }
+        ],
+    )
+
+    costmap_node_bringup = [
+        EmitEvent(
+            event=ChangeState(
+                lifecycle_node_matcher=matches_action(costmap_node),
+                transition_id=Transition.TRANSITION_CONFIGURE,
+            )
+        ),
+        RegisterEventHandler(
+            OnStateTransition(
+                target_lifecycle_node=costmap_node,
+                goal_state='inactive',
+                entities=[
+                    EmitEvent(
+                        event=ChangeState(
+                            lifecycle_node_matcher=matches_action(costmap_node),
+                            transition_id=Transition.TRANSITION_ACTIVATE,
+                        )
+                    )
+                ],
+            )
+        ),
+    ]
+
     
     return LaunchDescription([
         DeclareLaunchArgument('crazyflies_yaml_file', 
@@ -167,4 +230,14 @@ def generate_launch_description():
                 "use_sim_time": PythonExpression(["'", LaunchConfiguration('backend'), "' == 'sim'"]),
             }]
         ),
+        costmap_node,
+        *costmap_node_bringup,        
+        # Node(
+        #     package='crazyflie',
+        #     executable='simple_mapper_multiranger.py',
+        #     name='simple_mapper_multiranger',
+        #     output='screen',
+        #     parameters=[
+        #         {'robot_prefix': "cf231"}]
+        # ),
     ])
