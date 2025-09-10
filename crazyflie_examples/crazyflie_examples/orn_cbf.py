@@ -5,6 +5,9 @@ from pathlib import Path
 from crazyflie_py import Crazyswarm
 from crazyflie_py.uav_trajectory import Trajectory
 import numpy as np
+from nav_msgs.msg import OccupancyGrid
+import rclpy
+from rclpy.node import Node
 
 
 def executeTrajectory(timeHelper, cf, trajpath, rate=100, offset=np.zeros(3), yawrate=0.0):
@@ -91,6 +94,15 @@ def executeTrajectory2(timeHelper, cf,
         elif dt > 2.0 * dt_nominal: dt = 2.0 * dt_nominal
         last_time = now
 
+        # Access latest costmap if available on the node (set in main)
+        latest_costmap = getattr(timeHelper.node, 'latest_costmap', None)
+        
+        # Print costmap info for debugging
+        if latest_costmap is not None:
+            print(f"Costmap available: resolution={latest_costmap.info.resolution}, "
+                  f"width={latest_costmap.info.width}, height={latest_costmap.info.height}")
+        else:
+            print("No costmap available yet")
 
         if t < spin_duration:
             acc = np.zeros(3, dtype=float)
@@ -100,11 +112,12 @@ def executeTrajectory2(timeHelper, cf,
             cf.cmdFullState(cmd_pos, vel*0.0, acc, yaw, omega)
 
         else:
+            # Placeholder: use observation (latest_costmap) to compute acc if desired
             acc = np.array([0.0, float(ay), 0.0], dtype=float) 
             omega = np.array([0.0, 0.0, spin_yawrate], dtype=float)
 
-            pos = pos + vel * dt + 0.5 * acc * (dt ** 2)
             vel = vel + acc * dt
+            pos = pos + vel * dt
             yaw += yawrate * dt
 
             cf.cmdFullState(
@@ -123,6 +136,24 @@ def main():
     swarm = Crazyswarm()
     timeHelper = swarm.timeHelper
     cf = swarm.allcfs.crazyflies[0]
+
+    # Subscribe to costmap on the underlying node and store latest
+    def _on_costmap(msg: OccupancyGrid):
+        setattr(timeHelper.node, 'latest_costmap', msg)
+        print(f"Received costmap: resolution={msg.info.resolution}, "
+              f"width={msg.info.width}, height={msg.info.height}")
+    
+    # Subscribe to the costmap topic (note the correct topic name with namespace)
+    costmap_subscription = timeHelper.node.create_subscription(
+        OccupancyGrid, 
+        '/costmap/costmap',  # Updated topic name based on launch file
+        _on_costmap, 
+        1
+    )
+    
+    # Give some time for the subscription to establish
+    print("Waiting for costmap data...")
+    timeHelper.sleep(2.0)
 
     rate = 30.0
     Z = 0.5
