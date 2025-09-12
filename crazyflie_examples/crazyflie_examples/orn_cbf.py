@@ -20,7 +20,9 @@ from scipy import ndimage
 from ament_index_python.packages import get_package_share_directory
 
 
-def executeTrajectory(timeHelper, cf, trajpath, rate=100, offset=np.zeros(3), yawrate=0.0):
+def executeTrajectory(
+    timeHelper, cf, trajpath, rate=100, offset=np.zeros(3), yawrate=0.0
+):
     traj = Trajectory()
     traj.loadcsv(trajpath)
 
@@ -32,18 +34,16 @@ def executeTrajectory(timeHelper, cf, trajpath, rate=100, offset=np.zeros(3), ya
             break
 
         e = traj.eval(t)
-        yaw = yaw + yawrate * 1/rate
+        yaw = yaw + yawrate * 1 / rate
         omega = e.omega
         omega[2] = yawrate
         cf.cmdFullState(
-            e.pos + np.array(cf.initialPosition) + offset,
-            e.vel,
-            e.acc,
-            yaw,
-            omega)
+            e.pos + np.array(cf.initialPosition) + offset, e.vel, e.acc, yaw, omega
+        )
         print(yaw)
 
         timeHelper.sleepForRate(rate)
+
 
 # def executeTrajectory2(timeHelper, cf, rate=100, offset=np.zeros(3), yawrate=0.0):
 
@@ -71,6 +71,7 @@ def executeTrajectory(timeHelper, cf, trajpath, rate=100, offset=np.zeros(3), ya
 
 #         timeHelper.sleepForRate(rate)
 
+
 class Sin(nn.Module):
     """Sine activation function"""
 
@@ -97,6 +98,7 @@ def get_func(func_name: str):
     if func_name not in func_bank.keys():
         raise KeyError(f"Invalid function name: '{func_name}'")
     return func_bank[func_name]
+
 
 class Hypernetwork(nn.Module):
     """Predicts parameters of the main network based on a 2D input."""
@@ -126,7 +128,6 @@ class Hypernetwork(nn.Module):
             nn.SELU(),
             nn.Flatten(),
         )
-
 
         self.head = nn.Sequential(
             nn.Linear(1024, 1024),
@@ -160,6 +161,7 @@ class MainNetwork(nn.Module):
 
 class DoubleIntegrator2D:
     """2D Double Integrator model of a robot."""
+
     def __init__(self):
         # State space
         self.nx = 4
@@ -205,8 +207,7 @@ class ORN_CBF:
         self.main_net_device = "cpu"
         self.main_net_config = {
             "input_size": 4,
-            "layers":
-            [
+            "layers": [
                 [32, "sin"],
                 [32, "sin"],
                 [32, "sin"],
@@ -216,13 +217,15 @@ class ORN_CBF:
                 [8, "sin"],
                 [8, "sin"],
                 [8, "sin"],
-                [1, "softplus"]
-            ]
+                [1, "softplus"],
+            ],
         }
 
         self.system_dynamics = DoubleIntegrator2D()
 
-        self.main_net = MainNetwork(config=self.main_net_config).to(self.main_net_device)
+        self.main_net = MainNetwork(config=self.main_net_config).to(
+            self.main_net_device
+        )
 
         pkg_share_dir = get_package_share_directory("crazyflie_examples")
         hypernet_weights_path = os.path.join(
@@ -309,8 +312,15 @@ class ORN_CBF:
             (costmap_msg.info.size_y, costmap_msg.info.size_x),
         ).T
 
-        # TODO: extract costmap position
-        self.costmap_pos = np.zeros(2)
+        # TODO: check if the costmap position is correct
+        x_offset = costmap_msg.info.size_x * costmap_msg.info.resolution / 2.0
+        y_offset = costmap_msg.info.size_y * costmap_msg.info.resolution / 2.0
+        self.costmap_pos = np.array(
+            [
+                costmap_msg.info.origin.position.x + x_offset,
+                costmap_msg.info.origin.position.y + y_offset,
+            ]
+        )
 
         if np.count_nonzero(costmap) > 0:
             sdf_pos = ndimage.distance_transform_edt(~costmap)
@@ -379,15 +389,18 @@ class ORN_CBF:
         return opt_sol["x"].full().flatten()[: self.system_dynamics.nu]
 
 
-def executeTrajectory2(timeHelper, cf,
-                        duration: float,
-                        rate: float = 100.0,
-                        offset: np.ndarray = np.zeros(3),
-                        ay: float = 0.0,
-                        v0: np.ndarray = np.array([0.0, 0.0, 0.0]),
-                        yawrate: float = 0.0,    
-                        spin_duration: float = 3.0,
-                        spin_yawrate: float | None = None):
+def executeTrajectory2(
+    timeHelper,
+    cf,
+    duration: float,
+    rate: float = 100.0,
+    offset: np.ndarray = np.zeros(3),
+    ay: float = 0.0,
+    v0: np.ndarray = np.array([0.0, 0.0, 0.0]),
+    yawrate: float = 0.0,
+    spin_duration: float = 3.0,
+    spin_yawrate: float | None = None,
+):
 
     vel = np.array(v0, dtype=float).reshape(3)
     pos = np.zeros(3, dtype=float)
@@ -408,17 +421,21 @@ def executeTrajectory2(timeHelper, cf,
         if t > duration:
             break
         dt = now - last_time
-        if dt <= 0: dt = dt_nominal
-        elif dt > 2.0 * dt_nominal: dt = 2.0 * dt_nominal
+        if dt <= 0:
+            dt = dt_nominal
+        elif dt > 2.0 * dt_nominal:
+            dt = 2.0 * dt_nominal
         last_time = now
 
         # Access latest costmap if available on the node (set in main)
-        latest_costmap = getattr(timeHelper.node, 'latest_costmap', None)
-        
+        latest_costmap = getattr(timeHelper.node, "latest_costmap", None)
+
         # Print costmap info for debugging
         if latest_costmap is not None:
-            print(f"Costmap available: resolution={latest_costmap.info.resolution}, "
-                  f"width={latest_costmap.info.width}, height={latest_costmap.info.height}")
+            print(
+                f"Costmap available: resolution={latest_costmap.info.resolution}, "
+                f"width={latest_costmap.info.width}, height={latest_costmap.info.height}"
+            )
         else:
             print("No costmap available yet")
 
@@ -427,13 +444,13 @@ def executeTrajectory2(timeHelper, cf,
             omega = np.array([0.0, 0.0, spin_yawrate], dtype=float)
             yaw += spin_yawrate * dt
             cmd_pos = pos + np.array(cf.initialPosition, dtype=float) + offset
-            cf.cmdFullState(cmd_pos, vel*0.0, acc, yaw, omega)
+            cf.cmdFullState(cmd_pos, vel * 0.0, acc, yaw, omega)
 
         else:
             # Placeholder: use observation (latest_costmap) to compute acc if desired
-            acc_nom = np.array([0.0, float(ay), 0.0], dtype=float) 
+            acc_nom = np.array([0.0, float(ay), 0.0], dtype=float)
             omega = np.array([0.0, 0.0, spin_yawrate], dtype=float)
-            
+
             # TODO: check if the main net can be updated elsewhere and if CBF-QP can be run with higher frequency
             if latest_costmap is not None:
                 orn_cbf.update_main_net(latest_costmap)
@@ -448,11 +465,9 @@ def executeTrajectory2(timeHelper, cf,
                 vel,
                 acc,
                 yaw,
-                omega
+                omega,
             )
             timeHelper.sleepForRate(rate)
-
-
 
 
 def main():
@@ -462,18 +477,20 @@ def main():
 
     # Subscribe to costmap on the underlying node and store latest
     def _on_costmap(msg: OccupancyGrid):
-        setattr(timeHelper.node, 'latest_costmap', msg)
-        print(f"Received costmap: resolution={msg.info.resolution}, "
-              f"width={msg.info.width}, height={msg.info.height}")
-    
+        setattr(timeHelper.node, "latest_costmap", msg)
+        print(
+            f"Received costmap: resolution={msg.info.resolution}, "
+            f"width={msg.info.width}, height={msg.info.height}"
+        )
+
     # Subscribe to the costmap topic (note the correct topic name with namespace)
     costmap_subscription = timeHelper.node.create_subscription(
-        OccupancyGrid, 
-        '/costmap/costmap',  # Updated topic name based on launch file
-        _on_costmap, 
-        1
+        OccupancyGrid,
+        "/costmap/costmap",  # Updated topic name based on launch file
+        _on_costmap,
+        1,
     )
-    
+
     # Give some time for the subscription to establish
     print("Waiting for costmap data...")
     timeHelper.sleep(2.0)
@@ -486,19 +503,18 @@ def main():
 
     # high-level mode test
     traj1 = Trajectory()
-    traj1.loadcsv(Path(__file__).parent / 'data/figure8.csv')
+    traj1.loadcsv(Path(__file__).parent / "data/figure8.csv")
     cf.uploadTrajectory(0, 0, traj1)
 
-    cf.takeoff(targetHeight=Z, duration=Z+1.0)
-    timeHelper.sleep(Z+2.0)
+    cf.takeoff(targetHeight=Z, duration=Z + 1.0)
+    timeHelper.sleep(Z + 2.0)
 
     # cf.goTo([0.0, 0.0, Z], 1.4, 2.0)
     # timeHelper.sleep(2.0)
 
-
-    cf.setParam('hlCommander.yawacc', max_yaw_acc)
-    cf.setParam('hlCommander.yawrlim', yawrate)
-    cf.setParam('hlCommander.yawrate', yawrate)
+    cf.setParam("hlCommander.yawacc", max_yaw_acc)
+    cf.setParam("hlCommander.yawrlim", yawrate)
+    cf.setParam("hlCommander.yawrate", yawrate)
 
     # executeTrajectory(timeHelper, cf,
     #                   Path(__file__).parent / 'data/figure8.csv',
@@ -506,14 +522,15 @@ def main():
     #                   offset=np.array([0, 0, 0.5]),
     #                   yawrate=yawrate)
 
-
-    executeTrajectory2(timeHelper, cf, 
-                    duration=4.0,
-                    rate=rate,
-                    offset=np.array([0, 0, 0.5]),
-                    ay=-0.2,           
-                    yawrate=yawrate)
-
+    executeTrajectory2(
+        timeHelper,
+        cf,
+        duration=4.0,
+        rate=rate,
+        offset=np.array([0, 0, 0.5]),
+        ay=-0.2,
+        yawrate=yawrate,
+    )
 
     cf.startTrajectory(0)
     timeHelper.sleep(traj1.duration)
@@ -521,14 +538,13 @@ def main():
     # cf.goTo([0.0, 1.0, Z], 0.0, 5.0)
     # timeHelper.sleep(5.0)
 
-    
-    cf.setParam('hlCommander.yawrate', 0.0)
+    cf.setParam("hlCommander.yawrate", 0.0)
     timeHelper.sleep(2.0)
 
     # cf.notifySetpointsStop()
-    cf.land(targetHeight=0.03, duration=Z+1.0)
-    timeHelper.sleep(Z+2.0)
+    cf.land(targetHeight=0.03, duration=Z + 1.0)
+    timeHelper.sleep(Z + 2.0)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()
