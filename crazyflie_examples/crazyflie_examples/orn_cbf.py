@@ -9,6 +9,7 @@ from nav_msgs.msg import OccupancyGrid
 import rclpy
 from rclpy.node import Node
 
+import time
 import os
 import casadi as ca
 import torch
@@ -18,6 +19,8 @@ from torch import Tensor
 from torch.nn.utils import vector_to_parameters
 from scipy import ndimage
 from ament_index_python.packages import get_package_share_directory
+
+BASELINE = True
 
 
 def executeTrajectory(
@@ -198,7 +201,7 @@ class DoubleIntegrator2D:
 
 class ORN_CBF:
     def __init__(self):
-        self.alpha = 0.7
+        self.alpha = 2.0
         self.sdf_size = 80
         self.sdf_patch_size = 16
         self.sdf_res = 0.075
@@ -229,7 +232,7 @@ class ORN_CBF:
 
         pkg_share_dir = get_package_share_directory("crazyflie_examples")
         hypernet_weights_path = os.path.join(
-            pkg_share_dir, "crazyflie_examples", "data", self.hypernet_weights
+            pkg_share_dir, "data", "hypernet_weights", self.hypernet_weights
         )
 
         self.hypernet = Hypernetwork(
@@ -282,18 +285,15 @@ class ORN_CBF:
         self.qp_solver = ca.qpsol("qp_solver", "qpoases", qp, qp_opts)
 
         # SDF patch related variables
-        sdf_size = self.get_parameter("sdf_size").value
-        self.sdf_patch_size = self.get_parameter("sdf_patch_size").value
-        sdf_res = self.get_parameter("sdf_res").value
-        self.patch_idx_min = (sdf_size - self.sdf_patch_size) // 2
-        self.patch_idx_max = (sdf_size + self.sdf_patch_size) // 2
+        self.patch_idx_min = (self.sdf_size - self.sdf_patch_size) // 2
+        self.patch_idx_max = (self.sdf_size + self.sdf_patch_size) // 2
         self.sdf_patch_idx = [
             slice(None),
             slice(None),
             slice(self.patch_idx_min, self.patch_idx_max),
             slice(self.patch_idx_min, self.patch_idx_max),
         ]
-        self.patch_scale_factor = (self.sdf_patch_size - 1) * sdf_res / 2
+        self.patch_scale_factor = (self.sdf_patch_size - 1) * self.sdf_res / 2
 
         # Initialize variables
         self.sdf_patch = torch.ones(
@@ -309,12 +309,12 @@ class ORN_CBF:
         # Update the main neural network based on the latest costmap
         costmap = np.reshape(
             np.array(costmap_msg.data, dtype=np.bool_),
-            (costmap_msg.info.size_y, costmap_msg.info.size_x),
+            (costmap_msg.info.width, costmap_msg.info.height),
         ).T
 
         # TODO: check if the costmap position is correct
-        x_offset = costmap_msg.info.size_x * costmap_msg.info.resolution / 2.0
-        y_offset = costmap_msg.info.size_y * costmap_msg.info.resolution / 2.0
+        x_offset = costmap_msg.info.height * costmap_msg.info.resolution / 2.0
+        y_offset = costmap_msg.info.width * costmap_msg.info.resolution / 2.0
         self.costmap_pos = np.array(
             [
                 costmap_msg.info.origin.position.x + x_offset,
@@ -378,7 +378,7 @@ class ORN_CBF:
         )
 
         opt_sol = self.qp_solver(
-            x0=ca.vertcat(ca.DM(self.nom_control), 10.0),
+            x0=ca.vertcat(ca.DM(acc_nom), 10.0),
             lbx=self.system_dynamics.u_min + [0.0],
             ubx=self.system_dynamics.u_max + [ca.inf],
             lbg=0.0,
@@ -432,10 +432,11 @@ def executeTrajectory2(
 
         # Print costmap info for debugging
         if latest_costmap is not None:
-            print(
-                f"Costmap available: resolution={latest_costmap.info.resolution}, "
-                f"width={latest_costmap.info.width}, height={latest_costmap.info.height}"
-            )
+            pass
+            # print(
+            #     f"Costmap available: resolution={latest_costmap.info.resolution}, "
+            #     f"width={latest_costmap.info.width}, height={latest_costmap.info.height}"
+            # )
         else:
             print("No costmap available yet")
 
@@ -448,17 +449,34 @@ def executeTrajectory2(
 
         else:
             # Placeholder: use observation (latest_costmap) to compute acc if desired
+            K = np.array([
+                [3.16, 0, 2.71, 0],
+                [0, 3.16, 0, 2.71]
+            ])
+            x_ref = np.array([0, 1.5, 0, 0])
+            x = np.concatenate([pos[0:2], vel[0:2]], axis=0)
             acc_nom = np.array([0.0, float(ay), 0.0], dtype=float)
+            acc_nom[0:2] = -K @ (x - x_ref)
+            acc = np.zeros(3)
             omega = np.array([0.0, 0.0, spin_yawrate], dtype=float)
 
+            timer1s = time.time()
             # TODO: check if the main net can be updated elsewhere and if CBF-QP can be run with higher frequency
             if latest_costmap is not None:
                 orn_cbf.update_main_net(latest_costmap)
-            acc = orn_cbf.cbf_qp(pos, vel, acc_nom)
+            acc[0:2] = orn_cbf.cbf_qp(pos[0:2], vel[0:2], acc_nom[0:2])
+            # print("DURATION: ", time.time() - timer1s, " s", rate)
+
+            if BASELINE:
+                acc = acc_nom
 
             vel = vel + acc * dt
+            vel = np.clip(vel, -0.6, 0.6)
+
             pos = pos + vel * dt
             yaw += yawrate * dt
+
+            print(pos, vel, acc)
 
             cf.cmdFullState(
                 pos + np.array(cf.initialPosition, dtype=float) + offset,
@@ -467,7 +485,7 @@ def executeTrajectory2(
                 yaw,
                 omega,
             )
-            timeHelper.sleepForRate(rate)
+        timeHelper.sleepForRate(rate)
 
 
 def main():
@@ -478,10 +496,10 @@ def main():
     # Subscribe to costmap on the underlying node and store latest
     def _on_costmap(msg: OccupancyGrid):
         setattr(timeHelper.node, "latest_costmap", msg)
-        print(
-            f"Received costmap: resolution={msg.info.resolution}, "
-            f"width={msg.info.width}, height={msg.info.height}"
-        )
+        # print(
+        #     f"Received costmap: resolution={msg.info.resolution}, "
+        #     f"width={msg.info.width}, height={msg.info.height}"
+        # )
 
     # Subscribe to the costmap topic (note the correct topic name with namespace)
     costmap_subscription = timeHelper.node.create_subscription(
@@ -497,7 +515,7 @@ def main():
 
     rate = 30.0
     Z = 0.5
-    yawrate = 2.0
+    yawrate = 2.5
     max_yaw_acc = 5.0
     # max_yaw_rate = 5.0
 
@@ -512,9 +530,9 @@ def main():
     # cf.goTo([0.0, 0.0, Z], 1.4, 2.0)
     # timeHelper.sleep(2.0)
 
-    cf.setParam("hlCommander.yawacc", max_yaw_acc)
-    cf.setParam("hlCommander.yawrlim", yawrate)
-    cf.setParam("hlCommander.yawrate", yawrate)
+    # cf.setParam("hlCommander.yawacc", max_yaw_acc)
+    # cf.setParam("hlCommander.yawrlim", yawrate)
+    # cf.setParam("hlCommander.yawrate", yawrate)
 
     # executeTrajectory(timeHelper, cf,
     #                   Path(__file__).parent / 'data/figure8.csv',
@@ -522,26 +540,28 @@ def main():
     #                   offset=np.array([0, 0, 0.5]),
     #                   yawrate=yawrate)
 
+    os.system("ros2 service call /costmap/clear_entirely_costmap nav2_msgs/srv/ClearEntireCostmap")
+
     executeTrajectory2(
         timeHelper,
         cf,
-        duration=4.0,
+        duration=12.0,
         rate=rate,
         offset=np.array([0, 0, 0.5]),
-        ay=-0.2,
+        ay=0.2,
         yawrate=yawrate,
     )
 
-    cf.startTrajectory(0)
-    timeHelper.sleep(traj1.duration)
+    # cf.startTrajectory(0)
+    # timeHelper.sleep(traj1.duration)
 
     # cf.goTo([0.0, 1.0, Z], 0.0, 5.0)
     # timeHelper.sleep(5.0)
 
-    cf.setParam("hlCommander.yawrate", 0.0)
-    timeHelper.sleep(2.0)
+    # cf.setParam("hlCommander.yawrate", 0.0)
+    # timeHelper.sleep(2.0)
 
-    # cf.notifySetpointsStop()
+    cf.notifySetpointsStop()
     cf.land(targetHeight=0.03, duration=Z + 1.0)
     timeHelper.sleep(Z + 2.0)
 
