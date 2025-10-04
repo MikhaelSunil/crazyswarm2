@@ -1,3 +1,8 @@
+#Changes.Created
+Added Poststamped/Pose subscription for Crazyswarm2
+
+
+
 * Local CI: [![ROS 2](https://github.com/IMRCLab/crazyswarm2/actions/workflows/ci-ros2.yml/badge.svg)](https://github.com/IMRCLab/crazyswarm2/actions/workflows/ci-ros2.yml)
 * Rolling Dev CI : [![Build Status](https://build.ros2.org/job/Rdev__crazyflie__ubuntu_noble_amd64/badge/icon)](https://build.ros2.org/job/Rdev__crazyflie__ubuntu_noble_amd64/)
 * Jazzy Dev CI: [![Build Status](https://build.ros2.org/job/Jdev__crazyswarm2__ubuntu_noble_amd64/badge/icon)](https://build.ros2.org/job/Jdev__crazyswarm2__ubuntu_noble_amd64/)
